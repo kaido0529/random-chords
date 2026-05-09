@@ -3,78 +3,124 @@
 <head>
 <meta charset="UTF-8">
 <title>Random Chords</title>
+
 <style>
 body {
   font-family: sans-serif;
   padding: 20px;
-  max-width: 600px;
+  max-width: 700px;
   margin: auto;
 }
+
 button {
   font-size: 18px;
   margin: 4px;
   padding: 10px 16px;
 }
+
 select, input {
   font-size: 18px;
 }
+
 #chordDisplay {
-  font-size: 48px;
+  font-size: 52px;
   margin: 20px 0;
 }
+
 .section {
-  margin-top: 24px;
+  margin-top: 18px;
 }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
+
+.slider {
+  width: 260px;
+}
 </style>
 </head>
+
 <body>
+
 <h1>Random Chords</h1>
+
 <div id="chordDisplay">Cmaj7</div>
+
 <label>
   <input type="checkbox" id="showChord" checked>
   コード名を表示する
 </label>
+
 <div class="section" id="manualControls">
-  <select id="rootSelect"></select>
-  <select id="chordSelect"></select>
+  <div class="row">
+    <select id="rootSelect"></select>
+    <select id="chordSelect"></select>
+  </div>
+
+  <div class="row">
+    <label><input type="checkbox" id="fixRoot"> Root固定</label>
+    <label><input type="checkbox" id="fixChord"> コード種固定</label>
+  </div>
 </div>
-<div class="section">
+
+<div class="section row">
   <button onclick="playSelectedChord()">Play</button>
-  <button onclick="playRandomChord()">Random</button>
-  <button onclick="stopChord()">Stop</button>
+  <button onclick="playRandomChordManual()">Random</button>
+  <button onclick="stopAll()">Stop</button>
 </div>
-<div class="section">
-  <h3>Metronome</h3>
-  <label>
-    <input type="checkbox" id="metroOn">
-    ON
-  </label>
-  <div>
-    BPM:
-    <span id="bpmValue">120</span>
-  </div>
-  <input type="range" id="bpmSlider" min="20" max="240" value="120">
-  <div>
-    <button onclick="changeBpm(-10)">-10</button>
-    <button onclick="changeBpm(-1)">-1</button>
-    <button onclick="changeBpm(1)">+1</button>
-    <button onclick="changeBpm(10)">+10</button>
-  </div>
+
+<div class="section row">
+  <label><input type="checkbox" id="autoRandom"> Auto Random</label>
+  <span>秒ごと:</span>
+  <input class="slider" type="range" id="autoInterval" min="1" max="30" value="4">
+  <span id="autoIntervalValue">4</span>
 </div>
+
+<div class="section row">
+  <label><input type="checkbox" id="progressionOn"> +n半音進行</label>
+  <span>n:</span>
+  <input class="slider" type="range" id="degreeSlider" min="1" max="11" value="5">
+  <span id="degreeValue">5</span>
+
+  <span>秒ごと:</span>
+  <input class="slider" type="range" id="progressionInterval" min="1" max="30" value="4">
+  <span id="progressionIntervalValue">4</span>
+</div>
+
+<div class="section row">
+  <label><input type="checkbox" id="metroOn"> Metronome</label>
+  <span>BPM:</span>
+  <input class="slider" type="range" id="bpmSlider" min="20" max="240" value="110">
+  <span id="bpmValue">110</span>
+</div>
+
+<div class="section row">
+  <button onclick="changeBpm(-10)">-10</button>
+  <button onclick="changeBpm(-1)">-1</button>
+  <button onclick="changeBpm(1)">+1</button>
+  <button onclick="changeBpm(10)">+10</button>
+</div>
+
 <div class="section">
   <h3>Randomに含めるコード種</h3>
   <div id="chordCheckboxes" class="checkbox-grid"></div>
 </div>
+
 <script>
-const AudioContext =
-  window.AudioContext ||
-  window.webkitAudioContext;
+const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
+
 const NOTE_FREQ = {
   "C": 261.63,
   "C#": 277.18,
@@ -89,6 +135,9 @@ const NOTE_FREQ = {
   "A#": 466.16,
   "B": 493.88
 };
+
+const ROOT_ORDER = Object.keys(NOTE_FREQ);
+
 const CHORD_TYPES = {
   "maj7": [0, 4, 7, 11],
   "7": [0, 4, 7, 10],
@@ -100,289 +149,12 @@ const CHORD_TYPES = {
   "m6": [0, 3, 7, 9],
   "sus4-7": [0, 5, 7, 10]
 };
+
 let currentOscillators = [];
 let currentGain = null;
+
 let currentRoot = "C";
 let currentChord = "maj7";
-let bpm = 120;
-let metroTimer = null;
-const rootSelect =
-  document.getElementById("rootSelect");
-const chordSelect =
-  document.getElementById("chordSelect");
-const chordDisplay =
-  document.getElementById("chordDisplay");
-const showChord =
-  document.getElementById("showChord");
-const manualControls =
-  document.getElementById("manualControls");
-const bpmSlider =
-  document.getElementById("bpmSlider");
-const bpmValue =
-  document.getElementById("bpmValue");
-const metroOn =
-  document.getElementById("metroOn");
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new AudioContext();
-  }
-}
-function semitoneToFreq(rootFreq, semitone) {
-  return rootFreq *
-    Math.pow(2, semitone / 12);
-}
-function updateDisplay() {
-  if (showChord.checked) {
-    chordDisplay.textContent =
-      currentRoot + currentChord;
-    manualControls.style.visibility =
-      "visible";
-  } else {
-    chordDisplay.textContent = "?";
-    manualControls.style.visibility =
-      "hidden";
-  }
-}
-function stopChord() {
-  currentOscillators.forEach(osc => {
-    try {
-      osc.stop();
-    } catch(e) {}
-  });
-  currentOscillators = [];
-  if (currentGain) {
-    currentGain.disconnect();
-    currentGain = null;
-  }
-}
-function playChord(root, chordType) {
-  initAudio();
-  stopChord();
-  currentRoot = root;
-  currentChord = chordType;
-  const rootFreq = NOTE_FREQ[root];
-  const intervals =
-    CHORD_TYPES[chordType];
-  currentGain =
-    audioCtx.createGain();
-  currentGain.gain.setValueAtTime(
-    0.0,
-    audioCtx.currentTime
-  );
-  currentGain.gain.linearRampToValueAtTime(
-    0.15,
-    audioCtx.currentTime + 0.03
-  );
-  currentGain.connect(
-    audioCtx.destination
-  );
-  intervals.forEach(interval => {
-    const osc =
-      audioCtx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value =
-      semitoneToFreq(
-        rootFreq,
-        interval
-      );
-    osc.connect(currentGain);
-    osc.start();
-    currentOscillators.push(osc);
-  });
-  updateDisplay();
-}
-function playSelectedChord() {
-  playChord(
-    rootSelect.value,
-    chordSelect.value
-  );
-}
-function getSelectedChordTypes() {
-  return Object.keys(CHORD_TYPES)
-    .filter(name => {
-      const cb =
-        document.getElementById(
-          "chord_" + name
-        );
-      return cb && cb.checked;
-    });
-}
-function playRandomChord() {
-  const selected =
-    getSelectedChordTypes();
-  if (selected.length === 0) {
-    chordDisplay.textContent =
-      "コード種を1つ以上選択";
-    return;
-  }
-  const roots =
-    Object.keys(NOTE_FREQ);
-  const root =
-    roots[
-      Math.floor(
-        Math.random() * roots.length
-      )
-    ];
-  const chord =
-    selected[
-      Math.floor(
-        Math.random() * selected.length
-      )
-    ];
-  rootSelect.value = root;
-  chordSelect.value = chord;
-  playChord(root, chord);
-}
-function clickSound() {
-  initAudio();
-  const osc =
-    audioCtx.createOscillator();
-  const gain =
-    audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.value = 1200;
-  gain.gain.setValueAtTime(
-    0.4,
-    audioCtx.currentTime
-  );
-  gain.gain.exponentialRampToValueAtTime(
-    0.001,
-    audioCtx.currentTime + 0.04
-  );
-  osc.connect(gain);
-  gain.connect(
-    audioCtx.destination
-  );
-  osc.start();
-  osc.stop(
-    audioCtx.currentTime + 0.04
-  );
-}
-function startMetronome() {
-  stopMetronome();
-  clickSound();
-  metroTimer = setInterval(
-    clickSound,
-    60000 / bpm
-  );
-}
-function stopMetronome() {
-  if (metroTimer) {
-    clearInterval(metroTimer);
-    metroTimer = null;
-  }
-}
-function updateMetronome() {
-  bpm = Number(
-    bpmSlider.value
-  );
-  bpmValue.textContent = bpm;
-  if (metroOn.checked) {
-    startMetronome();
-  }
-}
-function changeBpm(delta) {
-  let newBpm =
-    Number(bpmSlider.value)
-    + delta;
-  newBpm = Math.max(
-    Number(bpmSlider.min),
-    Math.min(
-      Number(bpmSlider.max),
-      newBpm
-    )
-  );
-  bpmSlider.value = newBpm;
-  updateMetronome();
-}
-function setup() {
-  Object.keys(NOTE_FREQ)
-    .forEach(note => {
-      const opt =
-        document.createElement(
-          "option"
-        );
-      opt.value = note;
-      opt.textContent = note;
-      rootSelect.appendChild(opt);
-    });
-  Object.keys(CHORD_TYPES)
-    .forEach(chord => {
-      const opt =
-        document.createElement(
-          "option"
-        );
-      opt.value = chord;
-      opt.textContent = chord;
-      chordSelect.appendChild(opt);
-    });
-  const box =
-    document.getElementById(
-      "chordCheckboxes"
-    );
-  Object.keys(CHORD_TYPES)
-    .forEach(chord => {
-      const label =
-        document.createElement(
-          "label"
-        );
-      const cb =
-        document.createElement(
-          "input"
-        );
-      cb.type = "checkbox";
-      cb.id =
-        "chord_" + chord;
-      cb.checked =
-        ["maj7", "7", "m7"]
-        .includes(chord);
-      label.appendChild(cb);
-      label.appendChild(
-        document.createTextNode(
-          " " + chord
-        )
-      );
-      box.appendChild(label);
-    });
-  rootSelect.value = "C";
-  chordSelect.value = "maj7";
-  rootSelect.addEventListener(
-    "change",
-    () => {
-      currentRoot =
-        rootSelect.value;
-      updateDisplay();
-    }
-  );
-  chordSelect.addEventListener(
-    "change",
-    () => {
-      currentChord =
-        chordSelect.value;
-      updateDisplay();
-    }
-  );
-  showChord.addEventListener(
-    "change",
-    updateDisplay
-  );
-  bpmSlider.addEventListener(
-    "input",
-    updateMetronome
-  );
-  metroOn.addEventListener(
-    "change",
-    () => {
-      if (metroOn.checked) {
-        startMetronome();
-      } else {
-        stopMetronome();
-      }
-    }
-  );
-  updateDisplay();
-}
-setup();
-</script>
-</body>
-</html>
+
+let autoTimer = null;
+let progressionTimer
