@@ -77,23 +77,109 @@ select, input {
   font-size: 16px;
 }
 
+
 .manual-step button {
   font-size: 14px;
   padding: 2px 6px;
 }
 
+.break-button,
+.half-button {
+  background: #eee;
+  border: 1px solid #999;
+  color: black;
+}
 
 .break-button.active,
 .half-button.active {
   background: #333;
   color: white;
 }
-</style>
+
+
+ #helpSection {
+   display: none;
+   margin-top: 12px;
+   padding: 12px;
+   border: 1px solid #ccc;
+   border-radius: 8px;
+   background: #f8f8f8;
+   font-size: 14px;
+   line-height: 1.5;
+ }
+
+ #helpSection h3,
+ #helpSection h4 {
+   margin-bottom: 4px;
+ }
+
+ #helpSection ul {
+   margin-top: 4px;
+   padding-left: 20px;
+ }
+ </style>
 </head>
 
 <body>
 
 <h1>Chord Trainer</h1>
+
+<button class="small-button" onclick="toggleHelp()">
+  ヘルプ
+</button>
+
+<div id="helpSection">
+  <h3>使い方</h3>
+
+  <h4>基本操作</h4>
+  <ul>
+    <li><b>Play</b>: 現在選択中のコードを再生します。</li>
+    <li><b>Random</b>: ページ下部の<b>Include in Random</b>で選択されたコード種からランダムに1つ再生します。</li>
+    <li><b>Stop</b>: 再生を停止します。</li>
+  </ul>
+
+  <h4>コード表示と音色</h4>
+  <ul>
+    <li><b>Show chord names</b>: コード名の表示切替。</li>
+    <li><b>Tone</b>: コードの音色を変更します。</li>
+    <li><b>Wide</b>: 複数オクターブに広げて鳴らします。</li>
+    <li><b>Chord volume</b>: コード音量を調整します。</li>
+  </ul>
+
+  <h4>メトロノーム</h4>
+  <ul>
+    <li><b>ON</b>: メトロノームのON/OFF。</li>
+    <li><b>Metronome tone</b>: メトロノーム音色を変更します。</li>
+    <li><b>2&4 Click</b>: 2拍目と4拍目だけ鳴らします。</li>
+    <li><b>Click delay</b>: クリック音のタイミングをms単位で調整します。</li>
+  </ul>
+
+  <h4>進行再生</h4>
+  <ul>
+    <li><b>Change chords</b>: 一定拍ごとにコードを変更します。</li>
+    <li><b>Progression</b>: ルート進行パターンを選択します。Manualで任意の進行にできます。</li>
+    <li><b>▶</b>: 4カウント後に進行再生を開始します。</li>
+    <li><b>■</b>: 再生停止。</li>
+  </ul>
+
+  <h4>Manual progression</h4>
+  <ul>
+    <li><b>Key</b>: 基準キーを設定します。</li>
+    <li><b>Template</b>: 定型進行を読み込みます。</li>
+    <li><b>½</b>: 半小節にします。</li>
+    <li><b>↵</b>: 表示上で改行します。</li>
+    <li><b>×</b>: そのコードを削除します。</li>
+    <li><b>Add to templates</b>: 現在の進行をテンプレートのリストに登録します。</li>
+  </ul>
+
+  <h4>書き出し / 読み込み</h4>
+  <ul>
+    <li><b>Export progression</b>: 現在の進行だけを書き出します。</li>
+    <li><b>Import progression</b>: 書き出した進行を読み込みます。</li>
+    <li><b>Export templates</b>: テンプレートのリストをまとめて書き出します。</li>
+    <li><b>Import templates</b>: 既存テンプレートリストに別のテンプレートリストを追加読み込みします。重複する進行は除外されます。</li>
+  </ul>
+</div>
 
 <div id="chordDisplay">CM7</div>
 
@@ -471,12 +557,13 @@ const DEGREE_LABELS = [
   "VII"
 ];
 
-
+// いりーけさつざじぎいほげえぽてなたてごおむべびつをすをとみまつはつほれときりみきのゅつでぜねこごみぜごさぢぞだぃばたてえうきろょぃぇがへあろもにをだゆぱまへぇおぺっぐぇぎそっやたねやんぃぬふぷえんんぬげにをけぽをぇぅぁすぽびろるだがとごいかずざびづまぞぐびぞかゎうさぅはざょまめぎぴべひほみいぇぞいょぜくせに
 const TEMPLATE_LABELS = {
   "funk25": "ii-V7",
   "1625": "I-VI7-II-V7",
   "minor1625": "i-viø-iiø-V7",
   "jazzBlues": "Blues",
+  // "autumnLeaves": "Autumn Leaves",
   "allTheThings": "All The Things You Are",
   "giantSteps": "Giant Steps"
 };
@@ -486,6 +573,7 @@ let TEMPLATE_ORDER = [
   "1625",
   "minor1625",
   "jazzBlues",
+  // "autumnLeaves",
   "allTheThings",
   "giantSteps"
 ];
@@ -527,6 +615,50 @@ const PROGRESSION_TEMPLATES = {
     { interval: 2, chord: "m7", halfBar: true },
     { interval: 7, chord: "7", halfBar: true, breakAfter: true }
   ],
+
+  // "autumnLeaves": [
+  //   { interval: 5, chord: "m7" },
+  //   { interval: 10, chord: "7" },
+  //   { interval: 3, chord: "M7" },
+  //   { interval: 8, chord: "M7", breakAfter: true },
+
+  //   { interval: 2, chord: "m7b5" },
+  //   { interval: 7, chord: "7" },
+  //   { interval: 0, chord: "m7" },
+  //   { interval: 0, chord: "7", breakAfter: true },
+
+  //   { interval: 5, chord: "m7" },
+  //   { interval: 10, chord: "7" },
+  //   { interval: 3, chord: "M7" },
+  //   { interval: 8, chord: "M7", breakAfter: true },
+
+  //   { interval: 2, chord: "m7b5" },
+  //   { interval: 7, chord: "7" },
+  //   { interval: 0, chord: "m7" },
+  //   { interval: 0, chord: "7", breakAfter: true },
+
+  //   { interval: 2, chord: "m7b5" },
+  //   { interval: 7, chord: "7" },
+  //   { interval: 0, chord: "m7" },
+  //   { interval: 0, chord: "m7", breakAfter: true },
+
+  //   { interval: 5, chord: "m7" },
+  //   { interval: 10, chord: "7" },
+  //   { interval: 3, chord: "M7" },
+  //   { interval: 8, chord: "M7", breakAfter: true },
+
+  //   { interval: 2, chord: "m7b5" },
+  //   { interval: 7, chord: "7" },
+  //   { interval: 0, chord: "m7", halfBar: true },
+  //   { interval: 5, chord: "7", halfBar: true },
+  //   { interval: 10, chord: "m7", halfBar: true },
+  //   { interval: 9, chord: "7", halfBar: true, breakAfter: true },
+
+  //   { interval: 8, chord: "M7" },
+  //   { interval: 7, chord: "7" },
+  //   { interval: 0, chord: "m7" },
+  //   { interval: 0, chord: "7", breakAfter: true }
+  // ],
 
   "giantSteps": [
     { interval: 8, chord: "M7", halfBar: true },
@@ -801,6 +933,17 @@ const progressionCodeText =
   document.getElementById("progressionCodeText");
 const templateNameInput =
   document.getElementById("templateNameInput");
+
+function toggleHelp() {
+  const helpSection =
+    document.getElementById("helpSection");
+
+  helpSection.style.display =
+    helpSection.style.display === "none" ||
+    helpSection.style.display === ""
+      ? "block"
+      : "none";
+}
 
 function initAudio() {
   if (!audioCtx) {
