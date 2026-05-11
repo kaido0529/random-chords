@@ -19,6 +19,12 @@ button {
   padding: 10px 16px;
 }
 
+.small-button {
+  font-size: 14px;
+  padding: 4px 8px;
+  margin: 2px;
+}
+
 select, input {
   font-size: 18px;
 }
@@ -89,7 +95,7 @@ select, input {
 
 <h1>Chord Trainer</h1>
 
-<div id="chordDisplay">Cmaj7</div>
+<div id="chordDisplay">CM7</div>
 
 <label>
   <input type="checkbox" id="showChord" checked>
@@ -99,6 +105,27 @@ select, input {
 <div class="section" id="manualControls">
   <select id="rootSelect"></select>
   <select id="chordSelect"></select>
+
+  <div style="margin-top:8px;">
+    Tone:
+    <select id="toneSelect">
+      <option value="sine">Sine</option>
+      <option value="triangle" selected>Triangle</option>
+      <option value="square">Square</option>
+      <option value="sawtooth">Sawtooth</option>
+    </select>
+
+    <label style="margin-left:12px;">
+      <input type="checkbox" id="wideVoicingCheckbox">
+      Wide
+    </label>
+  </div>
+
+  <div style="margin-top:8px;">
+    Chord volume:
+    <input type="range" id="chordVolumeSlider" min="0" max="100" value="50">
+    <span id="chordVolumeValue">50</span>
+  </div>
 </div>
 
 <div class="section">
@@ -121,6 +148,22 @@ select, input {
   </div>
 
   <input type="range" id="bpmSlider" min="10" max="400" value="110">
+
+  <div>
+    Metronome volume:
+    <input type="range" id="metroVolumeSlider" min="0" max="100" value="50">
+    <span id="metroVolumeValue">50</span>
+  </div>
+
+  <div style="margin-top:8px;">
+    Metronome tone:
+    <select id="metroToneSelect">
+      <option value="sine">Sine</option>
+      <option value="triangle">Triangle</option>
+      <option value="square" selected>Square</option>
+      <option value="sawtooth">Sawtooth</option>
+    </select>
+  </div>
 
   <div>
     <button onclick="changeBpm(-10)">-10</button>
@@ -158,6 +201,13 @@ select, input {
 
       <option value="tritone">減5度進行</option>
     </select>
+
+    <button class="small-button" onclick="startProgressionPlayback()">
+      ▶
+    </button>
+    <button class="small-button" onclick="stopAll()">
+      ■
+    </button>
   </div>
 
   <div>
@@ -190,7 +240,6 @@ select, input {
     <div style="margin-top:8px;">
       Key:
       <select id="manualKeySelect"></select>
-      maj7
     </div>
 
     <div style="margin-top:8px;">
@@ -199,8 +248,7 @@ select, input {
         <option value="">---</option>
         <option value="funk25">ii-V7</option>
         <option value="1625">I-VI7-II-V7</option>
-        <option value="minor1625">Minor i-viø-iiø-V7</option>
-        <option value="1625">1625</option>
+        <option value="minor1625">i-viø-iiø-V7</option>
         <option value="jazzBlues">Blues</option>
         <option value="allTheThings">All The Things You Are</option>
         <option value="giantSteps">Giant Steps</option>
@@ -210,6 +258,9 @@ select, input {
       <button onclick="loadTemplate()">
         Load
       </button>
+      <button onclick="deleteSelectedTemplate()">
+        Delete
+      </button>
     </div>
 
     <div id="manualProgressionList"></div>
@@ -217,6 +268,44 @@ select, input {
     <button onclick="addManualStep()">
       + Add chord
     </button>
+
+    <div style="margin-top:12px;">
+      Template name:
+      <input
+        type="text"
+        id="templateNameInput"
+        style="font-size:16px; width:180px;"
+        placeholder="My progression"
+      >
+      <button onclick="addCurrentProgressionToTemplates()">
+        Add to templates
+      </button>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button onclick="exportSingleProgressionCode()">
+        Export progression
+      </button>
+      <button onclick="importSingleProgressionCode()">
+        Import progression
+      </button>
+    </div>
+
+    <div style="margin-top:8px;">
+      <button onclick="exportProgressionCode()">
+        Export templates
+      </button>
+      <button onclick="importProgressionCode()">
+        Import templates
+      </button>
+    </div>
+
+    <textarea
+      id="progressionCodeText"
+      rows="3"
+      style="width:100%; margin-top:6px; font-size:14px;"
+      placeholder="Progression code"
+    ></textarea>
 
   </div>
 
@@ -246,11 +335,33 @@ const NOTE_FREQ = {
   "B": 493.88
 };
 
+const NOTE_LABELS = {
+  "C": "C",
+  "C#": "C#/D♭",
+  "D": "D",
+  "D#": "D#/E♭",
+  "E": "E",
+  "F": "F",
+  "F#": "F#/G♭",
+  "G": "G",
+  "G#": "G#/A♭",
+  "A": "A",
+  "A#": "A#/B♭",
+  "B": "B"
+};
+
+
 const CHORD_TYPES = {
-  "maj7": [0, 4, 7, 11],
+  "M": [0, 4, 7],
+  "m": [0, 3, 7],
+  "dim": [0, 3, 6],
+  "aug": [0, 4, 8],
+  "sus4": [0, 5, 7],
+
+  "M7": [0, 4, 7, 11],
   "7": [0, 4, 7, 10],
   "m7": [0, 3, 7, 10],
-  "mMaj7": [0, 3, 7, 11],
+  "mM7": [0, 3, 7, 11],
   "dim7": [0, 3, 6, 9],
   "m7b5": [0, 3, 6, 10],
   "6": [0, 4, 7, 9],
@@ -258,10 +369,78 @@ const CHORD_TYPES = {
   "sus4-7": [0, 5, 7, 10]
 };
 
+const CHORD_TYPE_ORDER = Object.keys(CHORD_TYPES);
+
+function compressProgression(progression) {
+  return progression.map(step => {
+    let flags = 0;
+
+    if (step.halfBar) {
+      flags += 1;
+    }
+
+    if (step.breakAfter) {
+      flags += 2;
+    }
+
+    return [
+      Number(step.interval),
+      CHORD_TYPE_ORDER.indexOf(step.chord),
+      flags
+    ];
+  });
+}
+
+function expandProgression(compressed) {
+  return compressed.map(item => {
+    const flags = item[2] || 0;
+
+    return {
+      interval: Number(item[0]),
+      chord: CHORD_TYPE_ORDER[item[1]] || "M7",
+      halfBar: !!(flags & 1),
+      breakAfter: !!(flags & 2)
+    };
+  });
+}
+
+function compressTemplates(templates) {
+  const compressed = {};
+
+  Object.keys(templates).forEach(key => {
+    compressed[key] = compressProgression(templates[key]);
+  });
+
+  return compressed;
+}
+
+function expandTemplates(templates) {
+  const expanded = {};
+
+  Object.keys(templates).forEach(key => {
+    const progression = templates[key];
+
+    if (!Array.isArray(progression)) {
+      return;
+    }
+
+    if (
+      progression.length > 0 &&
+      Array.isArray(progression[0])
+    ) {
+      expanded[key] = expandProgression(progression);
+    } else {
+      expanded[key] = progression;
+    }
+  });
+
+  return expanded;
+}
+
 let currentOscillators = [];
 let currentGain = null;
 let currentRoot = "C";
-let currentChord = "maj7";
+let currentChord = "M7";
 
 let bpm = 110;
 let metroTimer = null;
@@ -274,7 +453,7 @@ let currentStepBeatLength = 4;
 let templateCountInPending = 0;
 let stoppedState = null;
 let manualProgression = [
-  { interval: 0, chord: "maj7", breakAfter: false }
+  { interval: 0, chord: "M7", breakAfter: false }
 ];
 
 const DEGREE_LABELS = [
@@ -284,7 +463,7 @@ const DEGREE_LABELS = [
   "♭III",
   "III",
   "IV",
-  "♭V",
+  "#IV",
   "V",
   "♭VI",
   "VI",
@@ -292,14 +471,42 @@ const DEGREE_LABELS = [
   "VII"
 ];
 
+
+const TEMPLATE_LABELS = {
+  "funk25": "ii-V7",
+  "1625": "I-VI7-II-V7",
+  "minor1625": "i-viø-iiø-V7",
+  "jazzBlues": "Blues",
+  "allTheThings": "All The Things You Are",
+  "giantSteps": "Giant Steps"
+};
+
+let TEMPLATE_ORDER = [
+  "funk25",
+  "1625",
+  "minor1625",
+  "jazzBlues",
+  "allTheThings",
+  "giantSteps"
+];
+
 const PROGRESSION_TEMPLATES = {
+  "funk25": [
+    { interval: 2, chord: "m7" },
+    { interval: 7, chord: "7" }
+  ],
   "1625": [
-    { interval: 0, chord: "maj7" },
+    { interval: 0, chord: "M7" },
     { interval: 9, chord: "7" },
     { interval: 2, chord: "m7" },
     { interval: 7, chord: "7", breakAfter: true }
   ],
-
+  "minor1625": [
+    { interval: 0, chord: "m7" },
+    { interval: 9, chord: "m7b5" },
+    { interval: 2, chord: "m7b5" },
+    { interval: 7, chord: "7", breakAfter: true }
+  ],
   "jazzBlues": [
     { interval: 0, chord: "7" },
     { interval: 5, chord: "7" },
@@ -322,33 +529,33 @@ const PROGRESSION_TEMPLATES = {
   ],
 
   "giantSteps": [
-    { interval: 8, chord: "maj7", halfBar: true },
+    { interval: 8, chord: "M7", halfBar: true },
     { interval: 11, chord: "7", halfBar: true },
-    { interval: 4, chord: "maj7", halfBar: true },
+    { interval: 4, chord: "M7", halfBar: true },
     { interval: 7, chord: "7", halfBar: true },
-    { interval: 0, chord: "maj7" },
+    { interval: 0, chord: "M7" },
     { interval: 6, chord: "m7", halfBar: true },
     { interval: 11, chord: "7", halfBar: true, breakAfter: true },
 
-    { interval: 4, chord: "maj7", halfBar: true },
+    { interval: 4, chord: "M7", halfBar: true },
     { interval: 7, chord: "7", halfBar: true },
-    { interval: 0, chord: "maj7", halfBar: true },
+    { interval: 0, chord: "M7", halfBar: true },
     { interval: 3, chord: "7", halfBar: true },
-    { interval: 8, chord: "maj7" },
+    { interval: 8, chord: "M7" },
     { interval: 2, chord: "m7", halfBar: true },
     { interval: 7, chord: "7", halfBar: true, breakAfter: true },
 
-    { interval: 0, chord: "maj7" },
+    { interval: 0, chord: "M7" },
     { interval: 6, chord: "m7", halfBar: true },
     { interval: 11, chord: "7", halfBar: true },
-    { interval: 4, chord: "maj7" },
+    { interval: 4, chord: "M7" },
     { interval: 10, chord: "m7", halfBar: true },
     { interval: 3, chord: "7", halfBar: true, breakAfter: true },
 
-    { interval: 8, chord: "maj7" },
+    { interval: 8, chord: "M7" },
     { interval: 2, chord: "m7", halfBar: true },
     { interval: 7, chord: "7", halfBar: true },
-    { interval: 0, chord: "maj7" },
+    { interval: 0, chord: "M7" },
     { interval: 10, chord: "m7", halfBar: true },
     { interval: 3, chord: "7", halfBar: true, breakAfter: true }
   ],
@@ -357,69 +564,222 @@ const PROGRESSION_TEMPLATES = {
     { interval: 9, chord: "m7" },
     { interval: 2, chord: "m7" },
     { interval: 7, chord: "7" },
-    { interval: 0, chord: "maj7"},
-    { interval: 5, chord: "maj7" },
+    { interval: 0, chord: "M7"},
+    { interval: 5, chord: "M7" },
     { interval: 6, chord: "m7", halfBar: true },
     { interval: 11, chord: "7", halfBar: true },
-    { interval: 4, chord: "maj7"},
-    { interval: 4, chord: "maj7", breakAfter: true },
+    { interval: 4, chord: "M7"},
+    { interval: 4, chord: "M7", breakAfter: true },
 
     { interval: 4, chord: "m7" },
     { interval: 9, chord: "m7" },
     { interval: 2, chord: "7" },
-    { interval: 7, chord: "maj7"},
-    { interval: 0, chord: "maj7" },
+    { interval: 7, chord: "M7"},
+    { interval: 0, chord: "M7" },
     { interval: 1, chord: "m7", halfBar: true },
     { interval: 6, chord: "7", halfBar: true },
-    { interval: 11, chord: "maj7"},
-    { interval: 11, chord: "maj7", breakAfter: true },
+    { interval: 11, chord: "M7"},
+    { interval: 11, chord: "M7", breakAfter: true },
 
     { interval: 1, chord: "m7" },
     { interval: 6, chord: "7" },
-    { interval: 11, chord: "maj7"},
-    { interval: 11, chord: "maj7"},
+    { interval: 11, chord: "M7"},
+    { interval: 11, chord: "M7"},
     { interval: 10, chord: "m7b5" },
     { interval: 3, chord: "7" },
-    { interval: 8, chord: "maj7" },
+    { interval: 8, chord: "M7" },
     { interval: 4, chord: "7", breakAfter: true },
 
     { interval: 9, chord: "m7" },
     { interval: 2, chord: "m7" },
     { interval: 7, chord: "7" },
-    { interval: 0, chord: "maj7" },
-    { interval: 5, chord: "maj7" },
-    { interval: 5, chord: "mMaj7" },
+    { interval: 0, chord: "M7" },
+    { interval: 5, chord: "M7" },
+    { interval: 5, chord: "mM7" },
     { interval: 4, chord: "m7" },
     { interval: 3, chord: "m7b5"},
     { interval: 2, chord: "m7" },
     { interval: 7, chord: "7" },
-    { interval: 0, chord: "maj7" },
+    { interval: 0, chord: "M7" },
     { interval: 11, chord: "m7b5", halfBar: true },
     { interval: 3, chord: "7", halfBar: true, breakAfter: true }
   ]
-,
-
-  "funk25": [
-    { interval: 2, chord: "m7" },
-    { interval: 7, chord: "7" }
-  ],
-
-  "minor1625": [
-    { interval: 0, chord: "m7" },
-    { interval: 9, chord: "m7b5" },
-    { interval: 2, chord: "m7b5" },
-    { interval: 7, chord: "7", breakAfter: true }
-  ]
 };
+
+function makeTemplateId(name) {
+  const safeName = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return "custom_" +
+    (safeName || "progression") +
+    "_" +
+    Date.now().toString(36);
+}
+
+function normalizeProgressionForCompare(progression) {
+  return JSON.stringify(
+    progression.map(step => ({
+      interval: Number(step.interval),
+      chord: step.chord,
+      halfBar: !!step.halfBar,
+      breakAfter: !!step.breakAfter
+    }))
+  );
+}
+
+function templateExistsByProgression(progression) {
+  const signature =
+    normalizeProgressionForCompare(progression);
+
+  return Object.keys(PROGRESSION_TEMPLATES)
+    .some(key => {
+      return normalizeProgressionForCompare(
+        PROGRESSION_TEMPLATES[key]
+      ) === signature;
+    });
+}
+
+function refreshTemplateSelect() {
+  const currentValue = templateSelect.value;
+
+  templateSelect.innerHTML = "";
+
+  const emptyOption =
+    document.createElement("option");
+
+  emptyOption.value = "";
+  emptyOption.textContent = "---";
+  templateSelect.appendChild(emptyOption);
+
+  const orderedKeys = [
+    ...TEMPLATE_ORDER,
+    ...Object.keys(PROGRESSION_TEMPLATES)
+      .filter(key => !TEMPLATE_ORDER.includes(key))
+  ];
+
+  orderedKeys
+    .filter(key => PROGRESSION_TEMPLATES[key])
+    .forEach(key => {
+      const opt =
+        document.createElement("option");
+
+      opt.value = key;
+      opt.textContent = TEMPLATE_LABELS[key] || key;
+
+      templateSelect.appendChild(opt);
+    });
+
+  if (PROGRESSION_TEMPLATES[currentValue]) {
+    templateSelect.value = currentValue;
+  }
+}
+
+function addCurrentProgressionToTemplates() {
+  const name = templateNameInput.value.trim();
+
+  if (!name) {
+    alert("Please enter a template name");
+    return;
+  }
+
+  if (templateExistsByProgression(manualProgression)) {
+    alert("This progression already exists");
+    return;
+  }
+
+  const id = makeTemplateId(name);
+
+  PROGRESSION_TEMPLATES[id] = JSON.parse(
+    JSON.stringify(manualProgression)
+  );
+
+  TEMPLATE_LABELS[id] = name;
+  TEMPLATE_ORDER.push(id);
+
+  refreshTemplateSelect();
+  templateSelect.value = id;
+}
+
+function getCustomTemplatesForExport() {
+  const templates = {};
+  const labels = {};
+
+  Object.keys(PROGRESSION_TEMPLATES)
+    .forEach(key => {
+      if (!key.startsWith("custom_")) {
+        return;
+      }
+
+      templates[key] = PROGRESSION_TEMPLATES[key];
+      labels[key] = TEMPLATE_LABELS[key] || key;
+    });
+
+  return {
+    templates: templates,
+    labels: labels
+  };
+}
+
+function deleteSelectedTemplate() {
+  const key = templateSelect.value;
+
+  if (!key || !PROGRESSION_TEMPLATES[key]) {
+    alert("Please select a template to delete");
+    return;
+  }
+
+  const label = TEMPLATE_LABELS[key] || key;
+
+  if (!confirm("Delete template: " + label + "?")) {
+    return;
+  }
+
+  delete PROGRESSION_TEMPLATES[key];
+  delete TEMPLATE_LABELS[key];
+  TEMPLATE_ORDER = TEMPLATE_ORDER.filter(id => id !== key);
+
+  templateSelect.value = "";
+
+  manualProgression = [
+    {
+      interval: 0,
+      chord: "M7",
+      halfBar: false,
+      breakAfter: false
+    }
+  ];
+
+  manualProgressionIndex = 0;
+  currentManualStepIndex = -1;
+
+  refreshTemplateSelect();
+  renderManualProgression();
+}
 
 const rootSelect = document.getElementById("rootSelect");
 const chordSelect = document.getElementById("chordSelect");
 const chordDisplay = document.getElementById("chordDisplay");
+const toneSelect = document.getElementById("toneSelect");
+const wideVoicingCheckbox =
+  document.getElementById("wideVoicingCheckbox");
+const chordVolumeSlider =
+  document.getElementById("chordVolumeSlider");
+const chordVolumeValue =
+  document.getElementById("chordVolumeValue");
 const showChord = document.getElementById("showChord");
 const manualControls = document.getElementById("manualControls");
 const bpmSlider = document.getElementById("bpmSlider");
 const bpmValue = document.getElementById("bpmValue");
 const metroOn = document.getElementById("metroOn");
+const metroVolumeSlider =
+  document.getElementById("metroVolumeSlider");
+const metroVolumeValue =
+  document.getElementById("metroVolumeValue");
+const metroToneSelect =
+  document.getElementById("metroToneSelect");
 const beatAutoRandom = document.getElementById("beatAutoRandom");
 const progressionMode = document.getElementById("progressionMode");
 const beatChangeSlider = document.getElementById("beatChangeSlider");
@@ -437,6 +797,10 @@ const manualKeySelect =
 
 const templateSelect =
   document.getElementById("templateSelect");
+const progressionCodeText =
+  document.getElementById("progressionCodeText");
+const templateNameInput =
+  document.getElementById("templateNameInput");
 
 function initAudio() {
   if (!audioCtx) {
@@ -452,13 +816,56 @@ function semitoneToFreq(rootFreq, semitone) {
   return rootFreq * Math.pow(2, semitone / 12);
 }
 
+function volumeSliderToGain(value, referenceGain) {
+  if (Number(value) <= 0) {
+    return 0;
+  }
+
+  const db =
+    (Number(value) - 50) / 3;
+
+  return referenceGain * Math.pow(10, db / 20);
+}
+
+function getChordVolume() {
+  return volumeSliderToGain(
+    chordVolumeSlider.value,
+    0.0192
+  );
+}
+
+function getMetronomeVolume() {
+  return volumeSliderToGain(
+    metroVolumeSlider.value,
+    0.16
+  );
+}
+
+
+
 function updateDisplay() {
   if (showChord.checked) {
-    chordDisplay.textContent = currentRoot + currentChord;
-    manualControls.style.visibility = "visible";
+    chordDisplay.textContent =
+      (NOTE_LABELS[currentRoot] || currentRoot)
+      + currentChord;
+    rootSelect.style.visibility = "visible";
+    chordSelect.style.visibility = "visible";
+
   } else {
     chordDisplay.textContent = "?";
-    manualControls.style.visibility = "hidden";
+    rootSelect.style.visibility = "hidden";
+    chordSelect.style.visibility = "hidden";
+  }
+}
+
+function applyCurrentChordIfPlaying() {
+  currentRoot = rootSelect.value;
+  currentChord = chordSelect.value;
+
+  updateDisplay();
+
+  if (currentOscillators.length > 0) {
+    playChord(rootSelect.value, chordSelect.value);
   }
 }
 
@@ -508,14 +915,28 @@ function playChord(root, chordType) {
 
   currentGain = audioCtx.createGain();
   currentGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
-  currentGain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 0.05);
+  currentGain.gain.linearRampToValueAtTime(
+    getChordVolume(),
+    audioCtx.currentTime + 0.05
+  );
   currentGain.connect(audioCtx.destination);
 
   intervals.forEach(interval => {
+
+    if (wideVoicingCheckbox.checked) {
+      createWideVoicingOscillators(
+        rootFreq,
+        interval
+      );
+
+      return;
+    }
+
     const osc = audioCtx.createOscillator();
 
-    osc.type = "sine";
-    osc.frequency.value = semitoneToFreq(rootFreq, interval);
+    osc.type = toneSelect.value;
+    osc.frequency.value =
+      semitoneToFreq(rootFreq, interval);
 
     osc.connect(currentGain);
     osc.start();
@@ -524,6 +945,56 @@ function playChord(root, chordType) {
   });
 
   updateDisplay();
+}
+
+function createWideVoicingOscillators(baseFreq, interval) {
+
+  const layers = [
+    { octave: -7, gain: 0.20 },
+    { octave: -6, gain: 0.20 },
+    { octave: -5, gain: 0.20 },
+    { octave: -4, gain: 0.20 },
+    { octave: -3, gain: 0.20 },
+    { octave: -2, gain: 0.20 },
+    { octave: -1, gain: 0.20 },
+    { octave:  0, gain: 0.20 },
+    { octave:  1, gain: 0.20 },
+    { octave:  2, gain: 0.20 },
+    { octave:  3, gain: 0.20 },
+    { octave:  4, gain: 0.20 },
+    { octave:  5, gain: 0.20 },
+    { octave:  6, gain: 0.20 },
+    { octave:  7, gain: 0.20 }
+  ];
+
+  layers.forEach(layer => {
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = toneSelect.value;
+
+    gain.gain.value = layer.gain;
+
+    const freq =
+      semitoneToFreq(
+        baseFreq * Math.pow(2, layer.octave),
+        interval
+      );
+
+    if (freq < 20 || freq > 20000) {
+      return;
+    }
+
+    osc.frequency.value = freq;
+
+    osc.connect(gain);
+    gain.connect(currentGain);
+
+    osc.start();
+
+    currentOscillators.push(osc);
+  });
 }
 
 function getStepBeatLength(step) {
@@ -538,6 +1009,30 @@ function getStepBeatLength(step) {
   }
 
   return fullLength;
+}
+
+
+function startProgressionPlayback() {
+  stoppedState = null;
+
+  beatCounter = 0;
+  beatInBar = 0;
+  templateCountInPending = 4;
+  currentStepBeatLength =
+    Number(beatChangeSlider.value);
+
+  stopChord();
+
+  beatAutoRandom.checked = true;
+  metroOn.checked = true;
+
+  if (progressionMode.value === "manual") {
+    manualProgressionIndex = 0;
+    currentManualStepIndex = -1;
+    renderManualProgression();
+  }
+
+  startMetronome(true);
 }
 
 function playSelectedChord() {
@@ -762,7 +1257,7 @@ function addManualStep() {
 
   manualProgression.push({
     interval: 0,
-    chord: "maj7",
+    chord: "M7",
     halfBar: false,
     breakAfter: false
   });
@@ -796,6 +1291,400 @@ function loadTemplate() {
   stopChord();
 
   renderManualProgression();
+}
+
+
+const JUMON_CHARS = [
+  "あ", "い", "う", "え", "お",
+  "か", "き", "く", "け", "こ",
+  "さ", "し", "す", "せ", "そ",
+  "た", "ち", "つ", "て", "と",
+  "な", "に", "ぬ", "ね", "の",
+  "は", "ひ", "ふ", "へ", "ほ",
+  "ま", "み", "む", "め", "も",
+  "や", "ゆ", "よ",
+  "ら", "り", "る", "れ", "ろ",
+  "わ", "を", "ん",
+  "が", "ぎ", "ぐ", "げ", "ご",
+  "ざ", "じ", "ず", "ぜ", "ぞ",
+  "だ", "ぢ", "づ", "で", "ど",
+  "ば", "び", "ぶ", "べ", "ぼ",
+  "ぱ", "ぴ", "ぷ", "ぺ", "ぽ",
+  "ぁ", "ぃ", "ぅ", "ぇ", "ぉ",
+  "ゃ", "ゅ", "ょ", "っ", "ゎ"
+];
+
+function numberToJumonNumber(number) {
+  const base = JUMON_CHARS.length;
+  let value = Number(number);
+  let result = "";
+
+  if (value === 0) {
+    return JUMON_CHARS[0];
+  }
+
+  while (value > 0) {
+    const index = value % base;
+    result = JUMON_CHARS[index] + result;
+    value = Math.floor(value / base);
+  }
+
+  return result;
+}
+
+function jumonNumberToNumber(text) {
+  const base = JUMON_CHARS.length;
+  let value = 0;
+
+  text.split("").forEach(char => {
+    const index = JUMON_CHARS.indexOf(char);
+
+    if (index < 0) {
+      throw new Error("Invalid length character");
+    }
+
+    value = value * base + index;
+  });
+
+  return value;
+}
+
+function bytesToJumon(bytes) {
+  const base = BigInt(JUMON_CHARS.length);
+  let value = 0n;
+
+  for (const byte of bytes) {
+    value = value * 256n + BigInt(byte);
+  }
+
+  let body = "";
+
+  if (value === 0n) {
+    body = JUMON_CHARS[0];
+  }
+
+  while (value > 0n) {
+    const index = Number(value % base);
+    body = JUMON_CHARS[index] + body;
+    value = value / base;
+  }
+
+  return numberToJumonNumber(bytes.length) + "ー" + body;
+}
+
+function jumonToBytes(jumon) {
+  const cleaned = jumon
+    .split("")
+    .filter(char => char.trim() !== "")
+    .join("");
+
+  const parts = cleaned.split("ー");
+
+  if (parts.length !== 2) {
+    throw new Error("Invalid code format");
+  }
+
+  const length = jumonNumberToNumber(parts[0]);
+  const chars = parts[1].split("");
+
+  const base = BigInt(JUMON_CHARS.length);
+  let value = 0n;
+
+  for (let i = 0; i < chars.length; i++) {
+    const index = JUMON_CHARS.indexOf(chars[i]);
+
+    if (index < 0) {
+      throw new Error("Invalid code character");
+    }
+
+    value = value * base + BigInt(index);
+  }
+
+  const bytes = new Uint8Array(length);
+
+  for (let i = length - 1; i >= 0; i--) {
+    bytes[i] = Number(value % 256n);
+    value = value / 256n;
+  }
+
+  return bytes;
+}
+
+
+function encodeSingleProgressionBinary() {
+  const encoder = new TextEncoder();
+  const nameBytes = encoder.encode(
+    templateNameInput.value.trim()
+  );
+
+  const bytes = [];
+  const keyIndex = Object.keys(NOTE_FREQ)
+    .indexOf(manualKeySelect.value);
+
+  bytes.push(4);
+  bytes.push(Math.max(0, keyIndex));
+  bytes.push(nameBytes.length & 255);
+  bytes.push((nameBytes.length >> 8) & 255);
+
+  nameBytes.forEach(byte => {
+    bytes.push(byte);
+  });
+
+  bytes.push(manualProgression.length & 255);
+
+  manualProgression.forEach(step => {
+    let flags = 0;
+
+    if (step.halfBar) {
+      flags += 1;
+    }
+
+    if (step.breakAfter) {
+      flags += 2;
+    }
+
+    const chordIndex = CHORD_TYPE_ORDER
+      .indexOf(step.chord);
+
+    bytes.push(Number(step.interval) & 255);
+    bytes.push(Math.max(0, chordIndex) & 255);
+    bytes.push(flags & 255);
+  });
+
+  return bytesToJumon(
+    new Uint8Array(bytes)
+  );
+}
+
+function decodeSingleProgressionBinary(code) {
+  const bytes = jumonToBytes(code);
+  let offset = 0;
+
+  const version = bytes[offset++];
+
+  if (version !== 4) {
+    throw new Error("Invalid progression version");
+  }
+
+  const keyIndex = bytes[offset++];
+  const nameLength =
+    bytes[offset++] |
+    (bytes[offset++] << 8);
+
+  const nameBytes = bytes.slice(
+    offset,
+    offset + nameLength
+  );
+
+  offset += nameLength;
+
+  const decoder = new TextDecoder();
+  const name = decoder.decode(nameBytes);
+
+  const count = bytes[offset++];
+  const roots = Object.keys(NOTE_FREQ);
+  const progression = [];
+
+  for (let i = 0; i < count; i++) {
+    const interval = bytes[offset++];
+    const chordIndex = bytes[offset++];
+    const flags = bytes[offset++];
+
+    progression.push({
+      interval: interval,
+      chord: CHORD_TYPE_ORDER[chordIndex] || "M7",
+      halfBar: !!(flags & 1),
+      breakAfter: !!(flags & 2)
+    });
+  }
+
+  return {
+    key: roots[keyIndex] || "C",
+    name: name,
+    progression: progression
+  };
+}
+
+function exportSingleProgressionCode() {
+  progressionCodeText.value =
+    encodeSingleProgressionBinary();
+}
+
+function importSingleProgressionCode() {
+  try {
+    const data =
+      decodeSingleProgressionBinary(
+        progressionCodeText.value.trim()
+      );
+
+    manualKeySelect.value = data.key;
+
+    if (data.name) {
+      templateNameInput.value = data.name;
+    }
+
+    manualProgression = data.progression;
+    manualProgressionIndex = 0;
+    currentManualStepIndex = -1;
+
+    renderManualProgression();
+
+  } catch (e) {
+    alert("Invalid progression code");
+  }
+}
+
+function encodeTemplateCollectionBinary() {
+  const encoder = new TextEncoder();
+  const bytes = [];
+
+  const customData = getCustomTemplatesForExport();
+  const templateKeys = Object.keys(customData.templates);
+
+  bytes.push(5);
+  bytes.push(templateKeys.length & 255);
+
+  templateKeys.forEach(key => {
+    const label = customData.labels[key] || key;
+    const nameBytes = encoder.encode(label);
+    const progression = customData.templates[key];
+
+    bytes.push(nameBytes.length & 255);
+
+    nameBytes.forEach(byte => {
+      bytes.push(byte);
+    });
+
+    bytes.push(progression.length & 255);
+
+    progression.forEach(step => {
+      let flags = 0;
+
+      if (step.halfBar) {
+        flags += 1;
+      }
+
+      if (step.breakAfter) {
+        flags += 2;
+      }
+
+      const chordIndex = CHORD_TYPE_ORDER
+        .indexOf(step.chord);
+
+      bytes.push(Number(step.interval) & 255);
+      bytes.push(Math.max(0, chordIndex) & 255);
+      bytes.push(flags & 255);
+    });
+  });
+
+  return bytesToJumon(
+    new Uint8Array(bytes)
+  );
+}
+
+function decodeTemplateCollectionBinary(code) {
+  const bytes = jumonToBytes(code);
+  const decoder = new TextDecoder();
+
+  let offset = 0;
+
+  const version = bytes[offset++];
+
+  if (version !== 5) {
+    throw new Error("Invalid template version");
+  }
+
+  const templateCount = bytes[offset++];
+  const templates = {};
+  const labels = {};
+
+  for (let t = 0; t < templateCount; t++) {
+
+    const nameLength = bytes[offset++];
+
+    const nameBytes = bytes.slice(
+      offset,
+      offset + nameLength
+    );
+
+    offset += nameLength;
+
+    const label = decoder.decode(nameBytes);
+
+    const progressionLength = bytes[offset++];
+    const progression = [];
+
+    for (let i = 0; i < progressionLength; i++) {
+      const interval = bytes[offset++];
+      const chordIndex = bytes[offset++];
+      const flags = bytes[offset++];
+
+      progression.push({
+        interval: interval,
+        chord: CHORD_TYPE_ORDER[chordIndex] || "M7",
+        halfBar: !!(flags & 1),
+        breakAfter: !!(flags & 2)
+      });
+    }
+
+    const id = makeTemplateId(label);
+
+    templates[id] = progression;
+    labels[id] = label;
+  }
+
+  return {
+    templates: templates,
+    labels: labels
+  };
+}
+
+function exportProgressionCode() {
+  progressionCodeText.value =
+    encodeTemplateCollectionBinary();
+}
+
+function importProgressionCode() {
+  try {
+    const data = decodeTemplateCollectionBinary(
+      progressionCodeText.value.trim()
+    );
+
+    let addedCount = 0;
+
+    Object.keys(data.templates)
+      .forEach(key => {
+        const progression = data.templates[key];
+
+        if (!Array.isArray(progression)) {
+          return;
+        }
+
+        if (templateExistsByProgression(progression)) {
+          return;
+        }
+
+        const label =
+          data.labels && data.labels[key]
+            ? data.labels[key]
+            : key;
+
+        const newId = makeTemplateId(label);
+
+        PROGRESSION_TEMPLATES[newId] = progression;
+        TEMPLATE_LABELS[newId] = label;
+        TEMPLATE_ORDER.push(newId);
+
+        addedCount++;
+      });
+
+    refreshTemplateSelect();
+
+    alert("Imported " + addedCount + " template(s)");
+
+  } catch (e) {
+    alert("Invalid template code");
+  }
 }
 
 function playProgressionChord() {
@@ -973,10 +1862,13 @@ function clickSound(freq = 1200, volume = 0.4) {
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
 
-  osc.type = "sine";
+  osc.type = metroToneSelect.value;
   osc.frequency.value = freq;
 
-  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.setValueAtTime(
+    volume * getMetronomeVolume(),
+    audioCtx.currentTime
+  );
   gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
 
   osc.connect(gain);
@@ -1133,7 +2025,7 @@ function setup() {
     const opt = document.createElement("option");
 
     opt.value = note;
-    opt.textContent = note;
+    opt.textContent = NOTE_LABELS[note] || note;
 
     rootSelect.appendChild(opt);
   });
@@ -1144,7 +2036,7 @@ function setup() {
       document.createElement("option");
 
     opt.value = note;
-    opt.textContent = note;
+    opt.textContent = NOTE_LABELS[note] || note;
 
     manualKeySelect.appendChild(opt);
   });
@@ -1166,7 +2058,7 @@ function setup() {
 
     cb.type = "checkbox";
     cb.id = "chord_" + chord;
-    cb.checked = ["maj7", "7", "m7"].includes(chord);
+    cb.checked = ["M7", "7", "m7"].includes(chord);
 
     label.appendChild(cb);
     label.appendChild(document.createTextNode(" " + chord));
@@ -1175,17 +2067,39 @@ function setup() {
   });
 
   rootSelect.value = "C";
-  chordSelect.value = "maj7";
+  chordSelect.value = "M7";
   manualKeySelect.value = "C";
 
   rootSelect.addEventListener("change", () => {
-    currentRoot = rootSelect.value;
-    updateDisplay();
+    applyCurrentChordIfPlaying();
   });
 
   chordSelect.addEventListener("change", () => {
-    currentChord = chordSelect.value;
-    updateDisplay();
+    applyCurrentChordIfPlaying();
+  });
+
+  toneSelect.addEventListener("change", () => {
+    applyCurrentChordIfPlaying();
+  });
+
+  wideVoicingCheckbox.addEventListener("change", () => {
+    applyCurrentChordIfPlaying();
+  });
+
+  chordVolumeSlider.addEventListener("input", () => {
+    chordVolumeValue.textContent = chordVolumeSlider.value;
+
+    if (currentGain) {
+      currentGain.gain.setTargetAtTime(
+        getChordVolume(),
+        audioCtx.currentTime,
+        0.02
+      );
+    }
+  });
+
+  metroVolumeSlider.addEventListener("input", () => {
+    metroVolumeValue.textContent = metroVolumeSlider.value;
   });
 
   showChord.addEventListener("change", updateDisplay);
@@ -1242,6 +2156,7 @@ function setup() {
     }
   );
 
+  refreshTemplateSelect();
   renderManualProgression();
 
   updateDisplay();
