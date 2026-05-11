@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
 <meta charset="UTF-8">
-<title>Random Chords</title>
+<title>Chord Trainer</title>
+
 <style>
 body {
   font-family: sans-serif;
@@ -10,71 +12,224 @@ body {
   max-width: 600px;
   margin: auto;
 }
+
 button {
   font-size: 18px;
   margin: 4px;
   padding: 10px 16px;
 }
+
 select, input {
   font-size: 18px;
 }
+
 #chordDisplay {
   font-size: 48px;
   margin: 20px 0;
 }
+
 .section {
   margin-top: 24px;
 }
+
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
+
+#manualProgressionList {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.manual-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.manual-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.manual-step.active-step {
+  background: #ffeaa7;
+  border-color: #333;
+}
+
+.manual-step select {
+  font-size: 16px;
+}
+
+.manual-step button {
+  font-size: 14px;
+  padding: 2px 6px;
+}
+
+
+.break-button.active,
+.half-button.active {
+  background: #333;
+  color: white;
+}
 </style>
 </head>
+
 <body>
-<h1>Random Chords</h1>
+
+<h1>Chord Trainer</h1>
+
 <div id="chordDisplay">Cmaj7</div>
+
 <label>
   <input type="checkbox" id="showChord" checked>
-  コード名を表示する
+  Show chord names
 </label>
+
 <div class="section" id="manualControls">
   <select id="rootSelect"></select>
   <select id="chordSelect"></select>
 </div>
+
 <div class="section">
   <button onclick="playSelectedChord()">Play</button>
-  <button onclick="playRandomChord()">Random</button>
-  <button onclick="stopChord()">Stop</button>
+  <button onclick="stopAll()">Stop</button>
 </div>
+
 <div class="section">
   <h3>Metronome</h3>
+
   <label>
-    <input type="checkbox" id="metroOn">
+    <input type="checkbox" id="metroOn" checked>
     ON
   </label>
+
   <div>
     BPM:
-    <span id="bpmValue">120</span>
+    <span id="bpmValue">110</span>
   </div>
-  <input type="range" id="bpmSlider" min="20" max="240" value="120">
+
+  <input type="range" id="bpmSlider" min="10" max="400" value="110">
+
   <div>
     <button onclick="changeBpm(-10)">-10</button>
     <button onclick="changeBpm(-1)">-1</button>
     <button onclick="changeBpm(1)">+1</button>
     <button onclick="changeBpm(10)">+10</button>
   </div>
+
+  <div>
+    <label>
+      <input type="checkbox" id="beatAutoRandom" checked>
+      Change chords
+    </label>
+  </div>
+
+  <div>
+    Progression:
+    <select id="progressionMode">
+      <option value="random">Random</option>
+      <option value="manual">Manual</option>
+      <option value="fourth">4度進行</option>
+      <option value="fifth">5度進行</option>
+
+      <option value="major3up">長3度上行</option>
+      <option value="minor3up">短3度上行</option>
+
+      <option value="major3down">長3度下行</option>
+      <option value="minor3down">短3度下行</option>
+
+      <option value="halfup">半音上行</option>
+      <option value="wholeup">全音上行</option>
+
+      <option value="halfdown">半音下行</option>
+      <option value="wholedown">全音下行</option>
+
+      <option value="tritone">減5度進行</option>
+    </select>
+  </div>
+
+  <div>
+    Change every
+    <input type="range" id="beatChangeSlider" min="1" max="16" value="4">
+    <span id="beatChangeValue">4</span>
+    beats
+  </div>
+
+  <div>
+    Click delay
+    <input type="range" id="clickDelaySlider" min="-100" max="100" value="30">
+    <span id="clickDelayValue">30</span>
+    ms
+  </div>
+
+  <div>
+    <label>
+      <input type="checkbox" id="only24" checked>
+      2&4 Click
+    </label>
+  </div>
+
+  <div id="manualProgressionSection" style="display:none; margin-top:10px;">
+
+    <div>
+      <b>Manual progression</b>
+    </div>
+
+    <div style="margin-top:8px;">
+      Key:
+      <select id="manualKeySelect"></select>
+      maj7
+    </div>
+
+    <div style="margin-top:8px;">
+      Template:
+      <select id="templateSelect">
+        <option value="">---</option>
+        <option value="funk25">Funk II-V</option>
+        <option value="1625">I-VI7-II-V7</option>
+        <option value="minor1625">Minor i-viø-iiø-V7</option>
+        <option value="1625">1625</option>
+        <option value="jazzBlues">Blues</option>
+        <option value="allTheThings">All The Things You Are</option>
+        <option value="giantSteps">Giant Steps</option>
+       
+      </select>
+
+      <button onclick="loadTemplate()">
+        Load
+      </button>
+    </div>
+
+    <div id="manualProgressionList"></div>
+
+    <button onclick="addManualStep()">
+      + Add chord
+    </button>
+
+  </div>
+
 </div>
+
 <div class="section">
-  <h3>Randomに含めるコード種</h3>
+  <h3>Include in Random:</h3>
   <div id="chordCheckboxes" class="checkbox-grid"></div>
 </div>
+
 <script>
-const AudioContext =
-  window.AudioContext ||
-  window.webkitAudioContext;
+const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
+
 const NOTE_FREQ = {
   "C": 261.63,
   "C#": 277.18,
@@ -89,6 +244,7 @@ const NOTE_FREQ = {
   "A#": 466.16,
   "B": 493.88
 };
+
 const CHORD_TYPES = {
   "maj7": [0, 4, 7, 11],
   "7": [0, 4, 7, 10],
@@ -100,289 +256,926 @@ const CHORD_TYPES = {
   "m6": [0, 3, 7, 9],
   "sus4-7": [0, 5, 7, 10]
 };
+
 let currentOscillators = [];
 let currentGain = null;
 let currentRoot = "C";
 let currentChord = "maj7";
-let bpm = 120;
+
+let bpm = 110;
 let metroTimer = null;
-const rootSelect =
-  document.getElementById("rootSelect");
-const chordSelect =
-  document.getElementById("chordSelect");
-const chordDisplay =
-  document.getElementById("chordDisplay");
-const showChord =
-  document.getElementById("showChord");
-const manualControls =
-  document.getElementById("manualControls");
-const bpmSlider =
-  document.getElementById("bpmSlider");
-const bpmValue =
-  document.getElementById("bpmValue");
-const metroOn =
-  document.getElementById("metroOn");
+let beatCounter = 0;
+let beatInBar = 0;
+let progressionRootIndex = 0;
+let manualProgressionIndex = 0;
+let currentManualStepIndex = -1;
+let currentStepBeatLength = 4;
+let templateCountInPending = 0;
+let stoppedState = null;
+let manualProgression = [
+  { interval: 0, chord: "maj7", breakAfter: false }
+];
+
+const DEGREE_LABELS = [
+  "I",
+  "♭II",
+  "II",
+  "♭III",
+  "III",
+  "IV",
+  "♭V",
+  "V",
+  "♭VI",
+  "VI",
+  "♭VII",
+  "VII"
+];
+
+const PROGRESSION_TEMPLATES = {
+  "1625": [
+    { interval: 0, chord: "maj7" },
+    { interval: 9, chord: "7" },
+    { interval: 2, chord: "m7" },
+    { interval: 7, chord: "7", breakAfter: true }
+  ],
+
+  "jazzBlues": [
+    { interval: 0, chord: "7" },
+    { interval: 5, chord: "7" },
+    { interval: 0, chord: "7" },
+    { interval: 7, chord: "m7", halfBar: true },
+    { interval: 0, chord: "7", halfBar: true, breakAfter: true },
+
+    { interval: 5, chord: "7" },
+    { interval: 6, chord: "dim7" },
+    { interval: 0, chord: "7" },
+    { interval: 4, chord: "m7", halfBar: true },
+    { interval: 9, chord: "7", halfBar: true, breakAfter: true },
+
+    { interval: 2, chord: "m7" },
+    { interval: 7, chord: "7" },
+    { interval: 0, chord: "7", halfBar: true },
+    { interval: 9, chord: "7", halfBar: true },
+    { interval: 2, chord: "m7", halfBar: true },
+    { interval: 7, chord: "7", halfBar: true, breakAfter: true }
+  ],
+
+  "giantSteps": [
+    { interval: 8, chord: "maj7", halfBar: true },
+    { interval: 11, chord: "7", halfBar: true },
+    { interval: 4, chord: "maj7", halfBar: true },
+    { interval: 7, chord: "7", halfBar: true },
+    { interval: 0, chord: "maj7" },
+    { interval: 6, chord: "m7", halfBar: true },
+    { interval: 11, chord: "7", halfBar: true, breakAfter: true },
+
+    { interval: 4, chord: "maj7", halfBar: true },
+    { interval: 7, chord: "7", halfBar: true },
+    { interval: 0, chord: "maj7", halfBar: true },
+    { interval: 3, chord: "7", halfBar: true },
+    { interval: 8, chord: "maj7" },
+    { interval: 2, chord: "m7", halfBar: true },
+    { interval: 7, chord: "7", halfBar: true, breakAfter: true },
+
+    { interval: 0, chord: "maj7" },
+    { interval: 6, chord: "m7", halfBar: true },
+    { interval: 11, chord: "7", halfBar: true },
+    { interval: 4, chord: "maj7" },
+    { interval: 10, chord: "m7", halfBar: true },
+    { interval: 3, chord: "7", halfBar: true, breakAfter: true },
+
+    { interval: 8, chord: "maj7" },
+    { interval: 2, chord: "m7", halfBar: true },
+    { interval: 7, chord: "7", halfBar: true },
+    { interval: 0, chord: "maj7" },
+    { interval: 10, chord: "m7", halfBar: true },
+    { interval: 3, chord: "7", halfBar: true, breakAfter: true }
+  ],
+
+  "allTheThings": [
+    { interval: 9, chord: "m7" },
+    { interval: 2, chord: "m7" },
+    { interval: 7, chord: "7" },
+    { interval: 0, chord: "maj7"},
+    { interval: 5, chord: "maj7" },
+    { interval: 6, chord: "m7", halfBar: true },
+    { interval: 11, chord: "7", halfBar: true },
+    { interval: 4, chord: "maj7"},
+    { interval: 4, chord: "maj7", breakAfter: true },
+
+    { interval: 4, chord: "m7" },
+    { interval: 9, chord: "m7" },
+    { interval: 2, chord: "7" },
+    { interval: 7, chord: "maj7"},
+    { interval: 0, chord: "maj7" },
+    { interval: 1, chord: "m7", halfBar: true },
+    { interval: 6, chord: "7", halfBar: true },
+    { interval: 11, chord: "maj7"},
+    { interval: 11, chord: "maj7", breakAfter: true },
+
+    { interval: 1, chord: "m7" },
+    { interval: 6, chord: "7" },
+    { interval: 11, chord: "maj7"},
+    { interval: 11, chord: "maj7"},
+    { interval: 10, chord: "m7b5" },
+    { interval: 3, chord: "7" },
+    { interval: 8, chord: "maj7" },
+    { interval: 4, chord: "7", breakAfter: true },
+
+    { interval: 9, chord: "m7" },
+    { interval: 2, chord: "m7" },
+    { interval: 7, chord: "7" },
+    { interval: 0, chord: "maj7" },
+    { interval: 5, chord: "maj7" },
+    { interval: 5, chord: "mMaj7" },
+    { interval: 4, chord: "m7" },
+    { interval: 3, chord: "m7b5"},
+    { interval: 2, chord: "m7" },
+    { interval: 7, chord: "7" },
+    { interval: 0, chord: "maj7" },
+    { interval: 11, chord: "m7b5", halfBar: true },
+    { interval: 3, chord: "7", halfBar: true, breakAfter: true }
+  ]
+,
+
+  "funk25": [
+    { interval: 2, chord: "m7" },
+    { interval: 7, chord: "7" }
+  ],
+
+  "minor1625": [
+    { interval: 0, chord: "m7" },
+    { interval: 9, chord: "m7b5" },
+    { interval: 2, chord: "m7b5" },
+    { interval: 7, chord: "7", breakAfter: true }
+  ]
+};
+
+const rootSelect = document.getElementById("rootSelect");
+const chordSelect = document.getElementById("chordSelect");
+const chordDisplay = document.getElementById("chordDisplay");
+const showChord = document.getElementById("showChord");
+const manualControls = document.getElementById("manualControls");
+const bpmSlider = document.getElementById("bpmSlider");
+const bpmValue = document.getElementById("bpmValue");
+const metroOn = document.getElementById("metroOn");
+const beatAutoRandom = document.getElementById("beatAutoRandom");
+const progressionMode = document.getElementById("progressionMode");
+const beatChangeSlider = document.getElementById("beatChangeSlider");
+const beatChangeValue = document.getElementById("beatChangeValue");
+const clickDelaySlider = document.getElementById("clickDelaySlider");
+const clickDelayValue = document.getElementById("clickDelayValue");
+const only24 = document.getElementById("only24");
+const manualProgressionSection =
+  document.getElementById("manualProgressionSection");
+const manualProgressionList =
+  document.getElementById("manualProgressionList");
+
+const manualKeySelect =
+  document.getElementById("manualKeySelect");
+
+const templateSelect =
+  document.getElementById("templateSelect");
+
 function initAudio() {
   if (!audioCtx) {
     audioCtx = new AudioContext();
   }
+
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
 }
+
 function semitoneToFreq(rootFreq, semitone) {
-  return rootFreq *
-    Math.pow(2, semitone / 12);
+  return rootFreq * Math.pow(2, semitone / 12);
 }
+
 function updateDisplay() {
   if (showChord.checked) {
-    chordDisplay.textContent =
-      currentRoot + currentChord;
-    manualControls.style.visibility =
-      "visible";
+    chordDisplay.textContent = currentRoot + currentChord;
+    manualControls.style.visibility = "visible";
   } else {
     chordDisplay.textContent = "?";
-    manualControls.style.visibility =
-      "hidden";
+    manualControls.style.visibility = "hidden";
   }
 }
+
 function stopChord() {
-  currentOscillators.forEach(osc => {
+  if (!audioCtx) {
+    return;
+  }
+
+  const oldOscillators = currentOscillators;
+  const oldGain = currentGain;
+
+  currentOscillators = [];
+  currentGain = null;
+
+  if (oldGain) {
     try {
-      osc.stop();
+      oldGain.gain.cancelScheduledValues(audioCtx.currentTime);
+      oldGain.gain.setValueAtTime(oldGain.gain.value, audioCtx.currentTime);
+      oldGain.gain.linearRampToValueAtTime(0.0, audioCtx.currentTime + 0.03);
+    } catch(e) {}
+  }
+
+  oldOscillators.forEach(osc => {
+    try {
+      osc.stop(audioCtx.currentTime + 0.04);
     } catch(e) {}
   });
-  currentOscillators = [];
-  if (currentGain) {
-    currentGain.disconnect();
-    currentGain = null;
-  }
+
+  setTimeout(() => {
+    if (oldGain) {
+      try {
+        oldGain.disconnect();
+      } catch(e) {}
+    }
+  }, 80);
 }
+
 function playChord(root, chordType) {
   initAudio();
   stopChord();
+
   currentRoot = root;
   currentChord = chordType;
+
   const rootFreq = NOTE_FREQ[root];
-  const intervals =
-    CHORD_TYPES[chordType];
-  currentGain =
-    audioCtx.createGain();
-  currentGain.gain.setValueAtTime(
-    0.0,
-    audioCtx.currentTime
-  );
-  currentGain.gain.linearRampToValueAtTime(
-    0.15,
-    audioCtx.currentTime + 0.03
-  );
-  currentGain.connect(
-    audioCtx.destination
-  );
+  const intervals = CHORD_TYPES[chordType];
+
+  currentGain = audioCtx.createGain();
+  currentGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+  currentGain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 0.05);
+  currentGain.connect(audioCtx.destination);
+
   intervals.forEach(interval => {
-    const osc =
-      audioCtx.createOscillator();
+    const osc = audioCtx.createOscillator();
+
     osc.type = "sine";
-    osc.frequency.value =
-      semitoneToFreq(
-        rootFreq,
-        interval
-      );
+    osc.frequency.value = semitoneToFreq(rootFreq, interval);
+
     osc.connect(currentGain);
     osc.start();
+
     currentOscillators.push(osc);
   });
+
   updateDisplay();
 }
+
+function getStepBeatLength(step) {
+  const fullLength =
+    Number(beatChangeSlider.value);
+
+  if (step && step.halfBar) {
+    return Math.max(
+      1,
+      Math.round(fullLength / 2)
+    );
+  }
+
+  return fullLength;
+}
+
 function playSelectedChord() {
-  playChord(
-    rootSelect.value,
-    chordSelect.value
-  );
+
+  stoppedState = null;
+
+  beatCounter = 0;
+  beatInBar = 0;
+  templateCountInPending = 4;
+  currentStepBeatLength =
+    Number(beatChangeSlider.value);
+
+  stopChord();
+
+  metroOn.checked = true;
+
+  if (progressionMode.value === "manual") {
+    manualProgressionIndex = 0;
+    currentManualStepIndex = -1;
+    beatAutoRandom.checked = true;
+    renderManualProgression();
+  }
+
+  startMetronome(true);
 }
+
 function getSelectedChordTypes() {
-  return Object.keys(CHORD_TYPES)
-    .filter(name => {
-      const cb =
-        document.getElementById(
-          "chord_" + name
-        );
-      return cb && cb.checked;
-    });
+  return Object.keys(CHORD_TYPES).filter(name => {
+    const cb = document.getElementById("chord_" + name);
+    return cb && cb.checked;
+  });
 }
-function playRandomChord() {
-  const selected =
-    getSelectedChordTypes();
-  if (selected.length === 0) {
-    chordDisplay.textContent =
-      "コード種を1つ以上選択";
+
+function renderManualProgression() {
+
+  manualProgressionList.innerHTML = "";
+
+  let currentColumn =
+    document.createElement("div");
+
+  currentColumn.className = "manual-column";
+  manualProgressionList.appendChild(currentColumn);
+
+  manualProgression.forEach((step, index) => {
+
+    const row =
+      document.createElement("div");
+    row.className = "manual-step";
+
+    if (index === currentManualStepIndex) {
+      row.classList.add("active-step");
+    }
+
+    const intervalSelect =
+      document.createElement("select");
+
+    DEGREE_LABELS.forEach((label, i) => {
+
+      const opt =
+        document.createElement("option");
+
+      opt.value = i;
+      opt.textContent = label;
+
+      if (i === step.interval) {
+        opt.selected = true;
+      }
+
+      intervalSelect.appendChild(opt);
+    });
+
+    intervalSelect.addEventListener(
+      "change",
+      () => {
+        manualProgression[index].interval =
+          Number(intervalSelect.value);
+      }
+    );
+
+    const chordSelectManual =
+      document.createElement("select");
+
+    Object.keys(CHORD_TYPES)
+      .forEach(chord => {
+
+        const opt =
+          document.createElement("option");
+
+        opt.value = chord;
+        opt.textContent = chord;
+
+        if (chord === step.chord) {
+          opt.selected = true;
+        }
+
+        chordSelectManual.appendChild(opt);
+      });
+
+    chordSelectManual.addEventListener(
+      "change",
+      () => {
+        manualProgression[index].chord =
+          chordSelectManual.value;
+      }
+    );
+
+    const halfButton =
+      document.createElement("button");
+
+    halfButton.textContent = "½";
+    halfButton.className = "half-button";
+
+    if (step.halfBar) {
+      halfButton.classList.add("active");
+    }
+
+    halfButton.onclick = () => {
+      manualProgression[index].halfBar =
+        !manualProgression[index].halfBar;
+
+      renderManualProgression();
+    };
+
+    const breakButton =
+      document.createElement("button");
+
+    breakButton.textContent = "↵";
+    breakButton.className = "break-button";
+
+    if (step.breakAfter) {
+      breakButton.classList.add("active");
+    }
+
+    breakButton.onclick = () => {
+      manualProgression[index].breakAfter =
+        !manualProgression[index].breakAfter;
+
+      renderManualProgression();
+    };
+
+    const deleteButton =
+      document.createElement("button");
+
+    deleteButton.textContent = "×";
+
+    deleteButton.onclick = () => {
+
+      if (manualProgression.length <= 1) {
+        return;
+      }
+
+      manualProgression.splice(index, 1);
+
+      renderManualProgression();
+    };
+
+    row.appendChild(intervalSelect);
+    row.appendChild(chordSelectManual);
+    row.appendChild(halfButton);
+    row.appendChild(breakButton);
+    row.appendChild(deleteButton);
+
+    currentColumn.appendChild(row);
+
+    if (
+      step.breakAfter &&
+      index < manualProgression.length - 1
+    ) {
+      currentColumn =
+        document.createElement("div");
+
+      currentColumn.className = "manual-column";
+      manualProgressionList.appendChild(currentColumn);
+    }
+  });
+}
+
+function addManualStep() {
+
+  manualProgression.push({
+    interval: 0,
+    chord: "maj7",
+    halfBar: false,
+    breakAfter: false
+  });
+
+  renderManualProgression();
+}
+
+function loadTemplate() {
+
+  const name =
+    templateSelect.value;
+
+  if (
+    !name ||
+    !PROGRESSION_TEMPLATES[name]
+  ) {
     return;
   }
-  const roots =
-    Object.keys(NOTE_FREQ);
-  const root =
-    roots[
-      Math.floor(
-        Math.random() * roots.length
+
+  manualProgression =
+    JSON.parse(
+      JSON.stringify(
+        PROGRESSION_TEMPLATES[name]
       )
-    ];
-  const chord =
-    selected[
-      Math.floor(
-        Math.random() * selected.length
-      )
-    ];
+    );
+
+  manualProgressionIndex = 0;
+  currentManualStepIndex = -1;
+  templateCountInPending = 4;
+
+  stopChord();
+
+  renderManualProgression();
+}
+
+function playProgressionChord() {
+  const selected = getSelectedChordTypes();
+
+  if (selected.length === 0) {
+    chordDisplay.textContent = "コード種を1つ以上選択";
+    return;
+  }
+
+  const roots = Object.keys(NOTE_FREQ);
+  const mode = progressionMode.value;
+
+  if (mode === "random") {
+
+    progressionRootIndex =
+      Math.floor(Math.random() * roots.length);
+
+  } else if (mode === "manual") {
+
+    const step =
+      manualProgression[
+        manualProgressionIndex
+      ];
+
+    currentManualStepIndex = manualProgressionIndex;
+
+    progressionRootIndex =
+      (
+        roots.indexOf(
+          manualKeySelect.value
+        )
+        + step.interval
+        + 12
+      ) % roots.length;
+
+    const root =
+      roots[progressionRootIndex];
+
+    rootSelect.value = root;
+    chordSelect.value = step.chord;
+
+    playChord(root, step.chord);
+
+    currentStepBeatLength =
+      getStepBeatLength(step);
+
+    renderManualProgression();
+
+    manualProgressionIndex =
+      (
+        manualProgressionIndex + 1
+      ) % manualProgression.length;
+
+    return;
+
+  } else {
+    progressionRootIndex = roots.indexOf(rootSelect.value);
+
+    if (progressionRootIndex < 0) {
+      progressionRootIndex = 0;
+    }
+
+    if (mode === "halfup") {
+      progressionRootIndex =
+        (progressionRootIndex + 1) % roots.length;
+    }
+
+    if (mode === "wholeup") {
+      progressionRootIndex =
+        (progressionRootIndex + 2) % roots.length;
+    }
+
+    if (mode === "minor3up") {
+      progressionRootIndex =
+        (progressionRootIndex + 3) % roots.length;
+    }
+
+    if (mode === "major3up") {
+      progressionRootIndex =
+        (progressionRootIndex + 4) % roots.length;
+    }
+
+    if (mode === "fourth") {
+      progressionRootIndex =
+        (progressionRootIndex + 5) % roots.length;
+    }
+
+    if (mode === "tritone") {
+      progressionRootIndex =
+        (progressionRootIndex + 6) % roots.length;
+    }
+
+    if (mode === "fifth") {
+      progressionRootIndex =
+        (progressionRootIndex + 7) % roots.length;
+    }
+
+    if (mode === "major3down") {
+      progressionRootIndex =
+        (progressionRootIndex + 8) % roots.length;
+    }
+
+    if (mode === "minor3down") {
+      progressionRootIndex =
+        (progressionRootIndex + 9) % roots.length;
+    }
+
+    if (mode === "wholedown") {
+      progressionRootIndex =
+        (progressionRootIndex + 10) % roots.length;
+    }
+
+    if (mode === "halfdown") {
+      progressionRootIndex =
+        (progressionRootIndex + 11) % roots.length;
+    }
+  }
+
+  const root = roots[progressionRootIndex];
+  const chord = selected[Math.floor(Math.random() * selected.length)];
+
   rootSelect.value = root;
   chordSelect.value = chord;
+
+  playChord(root, chord);
+
+  currentStepBeatLength =
+    Number(beatChangeSlider.value);
+}
+
+function playRandomChord() {
+  const selected = getSelectedChordTypes();
+
+  if (selected.length === 0) {
+    chordDisplay.textContent = "コード種を1つ以上選択";
+    return;
+  }
+
+  const roots = Object.keys(NOTE_FREQ);
+  const root = roots[Math.floor(Math.random() * roots.length)];
+  const chord = selected[Math.floor(Math.random() * selected.length)];
+
+  rootSelect.value = root;
+  chordSelect.value = chord;
+
   playChord(root, chord);
 }
-function clickSound() {
+
+function clickSound(freq = 1200, volume = 0.4) {
   initAudio();
-  const osc =
-    audioCtx.createOscillator();
-  const gain =
-    audioCtx.createGain();
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
   osc.type = "sine";
-  osc.frequency.value = 1200;
-  gain.gain.setValueAtTime(
-    0.4,
-    audioCtx.currentTime
-  );
-  gain.gain.exponentialRampToValueAtTime(
-    0.001,
-    audioCtx.currentTime + 0.04
-  );
+  osc.frequency.value = freq;
+
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+
   osc.connect(gain);
-  gain.connect(
-    audioCtx.destination
-  );
+  gain.connect(audioCtx.destination);
+
   osc.start();
-  osc.stop(
-    audioCtx.currentTime + 0.04
-  );
+  osc.stop(audioCtx.currentTime + 0.04);
 }
-function startMetronome() {
+
+function countInFirstBeatSound() {
+  clickSound(1800, 0.55);
+}
+
+function metronomeStep() {
+
+  beatCounter++;
+
+  beatInBar =
+    (beatInBar % 4) + 1;
+
+  if (
+    beatAutoRandom.checked &&
+    templateCountInPending <= 0 &&
+    beatCounter >= currentStepBeatLength
+  ) {
+
+    beatCounter = 0;
+
+    playProgressionChord();
+  }
+
+  setTimeout(() => {
+
+    if (templateCountInPending > 0) {
+
+      if (templateCountInPending === 4) {
+        countInFirstBeatSound();
+      } else {
+        clickSound();
+      }
+
+      templateCountInPending--;
+      if (templateCountInPending === 0) {
+        currentStepBeatLength =
+          Number(beatChangeSlider.value);
+
+        beatCounter = currentStepBeatLength - 1;
+      }
+
+      return;
+    }
+
+    if (only24.checked) {
+
+      if (
+        beatInBar === 2 ||
+        beatInBar === 4
+      ) {
+        clickSound();
+      }
+
+    } else {
+
+      clickSound();
+    }
+
+  }, Number(clickDelaySlider.value));
+}
+
+function startMetronome(withCountIn = true) {
   stopMetronome();
-  clickSound();
+
+  bpm = Number(bpmSlider.value);
+
+  beatCounter = 0;
+  beatInBar = 0;
+  currentStepBeatLength =
+    Number(beatChangeSlider.value);
+  progressionRootIndex = Object.keys(NOTE_FREQ).indexOf(rootSelect.value);
+
+  if (progressionRootIndex < 0) {
+    progressionRootIndex = 0;
+  }
+
+  if (withCountIn) {
+    stopChord();
+    templateCountInPending = 4;
+    currentManualStepIndex = -1;
+    renderManualProgression();
+  }
+
+  metronomeStep();
+
   metroTimer = setInterval(
-    clickSound,
+    metronomeStep,
     60000 / bpm
   );
 }
+
+
 function stopMetronome() {
   if (metroTimer) {
     clearInterval(metroTimer);
     metroTimer = null;
   }
 }
+
+function stopAll() {
+
+  stoppedState = {
+    metroOn: metroOn.checked,
+    beatAutoRandom: beatAutoRandom.checked,
+    beatCounter: beatCounter,
+    beatInBar: beatInBar,
+    manualProgressionIndex: manualProgressionIndex,
+    currentManualStepIndex: currentManualStepIndex,
+    currentStepBeatLength: currentStepBeatLength,
+    templateCountInPending: templateCountInPending
+  };
+
+  stopChord();
+  stopMetronome();
+
+  metroOn.checked = false;
+  beatAutoRandom.checked = false;
+
+  renderManualProgression();
+}
+
 function updateMetronome() {
-  bpm = Number(
-    bpmSlider.value
-  );
+  bpm = Number(bpmSlider.value);
   bpmValue.textContent = bpm;
+
   if (metroOn.checked) {
-    startMetronome();
+    startMetronome(false);
   }
 }
+
 function changeBpm(delta) {
-  let newBpm =
-    Number(bpmSlider.value)
-    + delta;
+  let newBpm = Number(bpmSlider.value) + delta;
+
   newBpm = Math.max(
     Number(bpmSlider.min),
-    Math.min(
-      Number(bpmSlider.max),
-      newBpm
-    )
+    Math.min(Number(bpmSlider.max), newBpm)
   );
+
   bpmSlider.value = newBpm;
+
   updateMetronome();
 }
+
 function setup() {
-  Object.keys(NOTE_FREQ)
-    .forEach(note => {
-      const opt =
-        document.createElement(
-          "option"
-        );
-      opt.value = note;
-      opt.textContent = note;
-      rootSelect.appendChild(opt);
-    });
-  Object.keys(CHORD_TYPES)
-    .forEach(chord => {
-      const opt =
-        document.createElement(
-          "option"
-        );
-      opt.value = chord;
-      opt.textContent = chord;
-      chordSelect.appendChild(opt);
-    });
-  const box =
-    document.getElementById(
-      "chordCheckboxes"
-    );
-  Object.keys(CHORD_TYPES)
-    .forEach(chord => {
-      const label =
-        document.createElement(
-          "label"
-        );
-      const cb =
-        document.createElement(
-          "input"
-        );
-      cb.type = "checkbox";
-      cb.id =
-        "chord_" + chord;
-      cb.checked =
-        ["maj7", "7", "m7"]
-        .includes(chord);
-      label.appendChild(cb);
-      label.appendChild(
-        document.createTextNode(
-          " " + chord
-        )
-      );
-      box.appendChild(label);
-    });
+  Object.keys(NOTE_FREQ).forEach(note => {
+    const opt = document.createElement("option");
+
+    opt.value = note;
+    opt.textContent = note;
+
+    rootSelect.appendChild(opt);
+  });
+
+  Object.keys(NOTE_FREQ).forEach(note => {
+
+    const opt =
+      document.createElement("option");
+
+    opt.value = note;
+    opt.textContent = note;
+
+    manualKeySelect.appendChild(opt);
+  });
+
+  Object.keys(CHORD_TYPES).forEach(chord => {
+    const opt = document.createElement("option");
+
+    opt.value = chord;
+    opt.textContent = chord;
+
+    chordSelect.appendChild(opt);
+  });
+
+  const box = document.getElementById("chordCheckboxes");
+
+  Object.keys(CHORD_TYPES).forEach(chord => {
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+
+    cb.type = "checkbox";
+    cb.id = "chord_" + chord;
+    cb.checked = ["maj7", "7", "m7"].includes(chord);
+
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(" " + chord));
+
+    box.appendChild(label);
+  });
+
   rootSelect.value = "C";
   chordSelect.value = "maj7";
-  rootSelect.addEventListener(
-    "change",
-    () => {
-      currentRoot =
-        rootSelect.value;
-      updateDisplay();
+  manualKeySelect.value = "C";
+
+  rootSelect.addEventListener("change", () => {
+    currentRoot = rootSelect.value;
+    updateDisplay();
+  });
+
+  chordSelect.addEventListener("change", () => {
+    currentChord = chordSelect.value;
+    updateDisplay();
+  });
+
+  showChord.addEventListener("change", updateDisplay);
+
+  bpmSlider.addEventListener("input", updateMetronome);
+
+  beatChangeSlider.addEventListener("input", () => {
+    beatChangeValue.textContent = beatChangeSlider.value;
+    currentStepBeatLength = Number(beatChangeSlider.value);
+  });
+
+  clickDelaySlider.addEventListener("input", () => {
+    clickDelayValue.textContent = clickDelaySlider.value;
+  });
+
+  metroOn.addEventListener("change", () => {
+    if (metroOn.checked) {
+      startMetronome(true);
+    } else {
+      stopMetronome();
     }
-  );
-  chordSelect.addEventListener(
+  });
+
+  progressionMode.addEventListener(
     "change",
     () => {
-      currentChord =
-        chordSelect.value;
-      updateDisplay();
-    }
-  );
-  showChord.addEventListener(
-    "change",
-    updateDisplay
-  );
-  bpmSlider.addEventListener(
-    "input",
-    updateMetronome
-  );
-  metroOn.addEventListener(
-    "change",
-    () => {
-      if (metroOn.checked) {
-        startMetronome();
+
+      if (
+        progressionMode.value === "manual"
+      ) {
+
+        manualProgressionSection.style.display =
+          "block";
+
       } else {
-        stopMetronome();
+
+        manualProgressionSection.style.display =
+          "none";
+
+        currentManualStepIndex = -1;
+        renderManualProgression();
       }
     }
   );
+
+  renderManualProgression();
+
   updateDisplay();
+
+  if (metroOn.checked) {
+    startMetronome(true);
+  }
 }
+
 setup();
 </script>
+
 </body>
 </html>
