@@ -197,7 +197,7 @@ select, input {
       Template:
       <select id="templateSelect">
         <option value="">---</option>
-        <option value="funk25">Funk II-V</option>
+        <option value="funk25">ii-V7</option>
         <option value="1625">I-VI7-II-V7</option>
         <option value="minor1625">Minor i-viø-iiø-V7</option>
         <option value="1625">1625</option>
@@ -1210,6 +1210,13 @@ function setup() {
       }
     } else {
       stopMetronome();
+    }
+  });
+
+  beatAutoRandom.addEventListener("change", () => {
+    if (beatAutoRandom.checked) {
+      metroOn.checked = true;
+      startMetronome(true);
     }
   });
 
