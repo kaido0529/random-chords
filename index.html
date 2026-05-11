@@ -103,6 +103,7 @@ select, input {
 
 <div class="section">
   <button onclick="playSelectedChord()">Play</button>
+  <button onclick="playRandomTrainingChord()">Random</button>
   <button onclick="stopAll()">Stop</button>
 </div>
 
@@ -110,7 +111,7 @@ select, input {
   <h3>Metronome</h3>
 
   <label>
-    <input type="checkbox" id="metroOn" checked>
+    <input type="checkbox" id="metroOn">
     ON
   </label>
 
@@ -130,7 +131,7 @@ select, input {
 
   <div>
     <label>
-      <input type="checkbox" id="beatAutoRandom" checked>
+      <input type="checkbox" id="beatAutoRandom">
       Change chords
     </label>
   </div>
@@ -541,26 +542,69 @@ function getStepBeatLength(step) {
 
 function playSelectedChord() {
 
-  stoppedState = null;
+  if (stoppedState) {
+
+    metroOn.checked = stoppedState.metroOn;
+    beatAutoRandom.checked = stoppedState.beatAutoRandom;
+
+    beatCounter = stoppedState.beatCounter;
+    beatInBar = stoppedState.beatInBar;
+    manualProgressionIndex = stoppedState.manualProgressionIndex;
+    currentManualStepIndex = stoppedState.currentManualStepIndex;
+    currentStepBeatLength = stoppedState.currentStepBeatLength;
+    templateCountInPending = stoppedState.templateCountInPending;
+
+    stoppedState = null;
+
+    renderManualProgression();
+
+    if (metroOn.checked) {
+
+      if (beatAutoRandom.checked) {
+        startMetronome(true);
+      } else {
+        if (!metroTimer) {
+          startMetronome(false);
+        }
+
+        playChord(rootSelect.value, chordSelect.value);
+      }
+
+    } else {
+      stopMetronome();
+      playChord(rootSelect.value, chordSelect.value);
+    }
+
+    return;
+  }
 
   beatCounter = 0;
   beatInBar = 0;
-  templateCountInPending = 4;
   currentStepBeatLength =
     Number(beatChangeSlider.value);
-
-  stopChord();
-
-  metroOn.checked = true;
 
   if (progressionMode.value === "manual") {
     manualProgressionIndex = 0;
     currentManualStepIndex = -1;
-    beatAutoRandom.checked = true;
     renderManualProgression();
   }
 
-  startMetronome(true);
+  if (metroOn.checked) {
+
+    if (beatAutoRandom.checked) {
+      startMetronome(true);
+    } else {
+      if (!metroTimer) {
+        startMetronome(false);
+      }
+
+      playChord(rootSelect.value, chordSelect.value);
+    }
+
+  } else {
+    stopMetronome();
+    playChord(rootSelect.value, chordSelect.value);
+  }
 }
 
 function getSelectedChordTypes() {
@@ -883,6 +927,7 @@ function playProgressionChord() {
     Number(beatChangeSlider.value);
 }
 
+
 function playRandomChord() {
   const selected = getSelectedChordTypes();
 
@@ -899,6 +944,27 @@ function playRandomChord() {
   chordSelect.value = chord;
 
   playChord(root, chord);
+}
+
+function playRandomTrainingChord() {
+  stoppedState = null;
+
+  stopChord();
+
+  beatAutoRandom.checked = false;
+
+  beatCounter = 0;
+  beatInBar = 0;
+  templateCountInPending = 0;
+  currentManualStepIndex = -1;
+
+  renderManualProgression();
+
+  playRandomChord();
+
+  if (metroOn.checked && !metroTimer) {
+    startMetronome(false);
+  }
 }
 
 function clickSound(freq = 1200, volume = 0.4) {
@@ -1137,7 +1203,11 @@ function setup() {
 
   metroOn.addEventListener("change", () => {
     if (metroOn.checked) {
-      startMetronome(true);
+      if (beatAutoRandom.checked) {
+        startMetronome(true);
+      } else {
+        startMetronome(false);
+      }
     } else {
       stopMetronome();
     }
